@@ -1,0 +1,145 @@
+---
+title: "Proyecto R"
+author: "Lesly Alejandra Escobar Aguilar"
+date: "2025-06-16"
+output: html_document
+---
+Para este proyecto se ha tomado como base el dataset del control de ventas de cierta cantidad de Pizzerias, entre los cuales se encuentran campos como tiempo de delivery, fechas, nivel de trafico, tipos de pizza preferidos, entre otros.
+
+```{r}
+#Librerias
+library(DT)
+library(readxl)
+library(ggplot2)
+library(readr)
+library(dplyr)
+library(scales)
+library(lubridate)
+
+#Cargar el archivo y mostrar datos
+datos <- read_excel("C:/Users/lesly/python_bootcamp/Actividad2_Modulo01/Enhanced_pizza.xlsx")
+datatable(datos)
+```
+
+## Limpieza y transformación de los datos
+Para esta parte se ha utilizado codigo para hacer una limpieza basica del dataset, en el cual vamos a eliminar registros duplicados o aquellos que tengan datos incompletos. Ademas segun el resumen estadistico podemos ver por medio de calculos como Media, mediana y Moda el impacto que tienen a nivel general las pizzerias por ejemplo que tanto afecta el trafico a la hora de las entregas a los clientes o el tiempo que se toman para anotar el pedido.
+
+Tambien se ha agregado un codigo para que los campos que sean necesarios solo utilicen dos decimales.
+
+```{r }
+#Estructura del dataset
+str(datos)
+#Resumen estadistico (General)
+summary(datos)
+
+# Eliminar duplicados
+datos <- distinct(datos)
+
+#Omitir registros con datos incompletos
+datos <- na.omit(datos)
+
+#Solo dos decimales
+datos <- datos %>%
+  mutate(
+    `Delivery Efficiency (min/km)` = round(`Delivery Efficiency (min/km)`, 2),
+    `Topping Density` = round(`Topping Density`, 2),
+    `Restaurant Avg Time` = round(`Restaurant Avg Time`, 2),
+    `Estimated Duration (min)` = round(`Estimated Duration (min)`, 2)
+  )
+datatable(datos)
+```
+
+##  Análisis exploratorio de datos (eda)
+El objetivo de este resumen es obtener una visión agregada del desempeño de cada sucursal de restaurante, evaluando métricas clave como número de órdenes, duración de entrega y eficiencia.
+-Podemos identificar qué restaurantes son más eficientes
+-Tambien podemos aquellos restaurantes que tienen pocos pedidos pero eficiencia en el tiempo de entrega.
+-Permite ver oportunidades de Mejora
+
+```{r}
+#Agrupacion de datos por medio de Restaurant y Location
+datos_resumen <- datos %>%
+  group_by(`Restaurant Name`, Location) %>%
+  summarise(
+    total_orders = n(),
+    avg_delivery_duration = mean(`Delivery Duration (min)`, na.rm = TRUE),
+    avg_delivery_efficiency = mean(`Delivery Efficiency (min/km)`, na.rm = TRUE),
+    avg_topping_density = mean(`Topping Density`, na.rm = TRUE),
+    avg_restaurant_time = mean(`Restaurant Avg Time`, na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    #Para que solo tengan dos decimales
+    across(where(is.numeric), ~round(., 2)) 
+  )
+datatable(datos_resumen)
+```
+##  Visualización de resultados
+En este apartado hemos realizado graficos para determinar el impacto de las pizzerias en los clientes por medio de diferentes graficos, por ejemplo:
+-Grafico por metodo de Pago: Indica la preferencia del cliente o el medio que es mas facil a utilizar para ellos
+-Grafico Delivery y Tamanio de Pizza: Permite evaluar si el tipo o tamaño del producto influye en el desempeño operativo.
+-Eficiencia del Restaurante: Permite evaluar el desempeño entre restaurantes.
+
+```{r}
+#Grafico por metodo de pago
+ggplot(datos, aes(x = `Payment Method`)) +
+  geom_bar(fill = "steelblue") +
+  theme_minimal() +
+  labs(
+    title = "Cantidad de Órdenes por Método de Pago",
+    x = "Método de Pago",
+    y = "Número de Órdenes"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+#Grafico Delivery y Tamanio de Pizza
+pizza_stats <- datos %>%
+  group_by(`Pizza Size`, `Pizza Type`) %>%
+  summarise(
+    avg_duration = mean(`Delivery Duration (min)`, na.rm = TRUE),
+    order_count = n()
+  )
+
+ggplot(pizza_stats, aes(x = `Pizza Size`, y = avg_duration, fill = `Pizza Type`)) +
+  geom_col(position = "dodge") +
+  theme_minimal() +
+  labs(
+    title = "Duración Promedio de Entrega por Tamaño y Tipo de Pizza",
+    x = "Tamaño de Pizza",
+    y = "Duración Promedio (min)",
+    fill = "Tipo de Pizza"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 0, hjust = 0.5)
+  )
+
+#Eficiencia del Restaurante
+ggplot(datos, aes(x = `Restaurant Name`, y = `Delivery Efficiency (min/km)`)) +
+  geom_boxplot() +
+  theme_minimal() +
+  coord_flip() +
+  labs(title = "Eficiencia de entrega por restaurante")
+```
+
+##  Visualización de resultados
+
+Conclusiones
+
+Eficiencia entre restaurantes: Algunos presentan altos niveles de eficiencia incluso con un volumen moderado de órdenes, lo que indica buenas prácticas logísticas que podrían ser replicadas en otras sucursales.
+
+Influencia del tamaño y tipo de pizza en la entrega: segun el análisis existen ciertos tamaños y tipos de pizza, los cuales están asociados a mayores tiempos de entrega. Esto puede deberse a una preparación más compleja o a una mayor demanda de esos productos.
+
+Preferencias de pago claramente definidas:Muestra que los clientes tienen cierta preferencia a métodos especificos, lo cual puede ser útil para diseñar promociones o facilitar el proceso de compra mediante incentivos personalizados.
+
+Posibles próximos pasos:
+Implementar análisis predictivos para estimar tiempos de entrega según tráfico, tamaño del pedido y localización.
+
+Evaluar el rendimiento por turno horario o día de la semana para detectar cuellos de botella temporales.
+
+Incluir métricas de satisfacción del cliente si están disponibles, para correlacionarlas con variables logísticas.
+
